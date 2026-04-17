@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dual Role Logbook</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --bg3: #efefeb;
+    --text: #1a1a18; --text2: #6b6b66; --text3: #9b9b95;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+    --blue-bg: #E6F1FB; --blue-text: #0C447C; --blue-border: #378ADD;
+    --green-bg: #E1F5EE; --green-text: #085041; --green-border: #0F6E56;
+    --amber-bg: #FAEEDA; --amber-text: #633806; --amber-border: #EF9F27;
+    --red-bg: #FCEBEB; --red-text: #791F1F; --red-border: #E24B4A;
+    --radius: 10px; --radius-sm: 7px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body { background: var(--bg2); color: var(--text); min-height: 100vh; }
+  .topbar { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .gdrive-status { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--bg2); color: var(--text2); display: flex; align-items: center; gap: 6px; }
+  .gdrive-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+  .gdrive-status.connected .dot { background: #1D9E75; }
+  .gdrive-status.connected { border-color: var(--green-border); background: var(--green-bg); color: var(--green-text); }
+  .btn { padding: 7px 14px; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg); cursor: pointer; color: var(--text); transition: background 0.1s; }
+  .btn:hover { background: var(--bg3); }
+  .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn-primary:hover { background: #333; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-green { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
+  .layout { display: flex; min-height: calc(100vh - 56px); }
+  .sidebar { width: 200px; background: var(--bg); border-right: 0.5px solid var(--border); padding: 1.25rem 0; flex-shrink: 0; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 1.25rem; font-size: 14px; cursor: pointer; color: var(--text2); border-left: 2px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--bg2); }
+  .nav-item.active { color: var(--text); font-weight: 500; border-left-color: var(--text); background: var(--bg2); }
+  .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+  .main { flex: 1; padding: 2rem; max-width: 860px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 600; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label.field-label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  input[type="text"], input[type="date"], textarea {
+    width: 100%; padding: 8px 10px; font-size: 14px; font-family: inherit;
+    border: 0.5px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); outline: none;
+  }
+  input:focus, textarea:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  .hat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .hat-opt { border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 8px; cursor: pointer; text-align: center; font-size: 13px; color: var(--text2); transition: all 0.15s; }
+  .hat-opt:hover { background: var(--bg2); }
+  .hat-opt.sel-company { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue-text); font-weight: 500; }
+  .hat-opt.sel-faculty { background: var(--green-bg); border-color: var(--green-border); color: var(--green-text); font-weight: 500; }
+  .hat-opt.sel-both { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-text); font-weight: 500; }
+  .hat-icon { font-size: 18px; margin-bottom: 4px; }
+  .resource-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .res-chip { border: 0.5px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--text2); background: var(--bg2); }
+  .res-chip.selected { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue-text); }
+  .submit-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.25rem; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+  .stat-num { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
+  .stat-label { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .filters { display: flex; gap: 8px; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+  .filter-chip { border: 0.5px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--text2); background: var(--bg); }
+  .filter-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .entry-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 8px; }
+  .entry-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .entry-meta { font-size: 12px; color: var(--text2); }
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+  .badge-company { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-faculty { background: var(--green-bg); color: var(--green-text); }
+  .badge-both { background: var(--amber-bg); color: var(--amber-text); }
+  .entry-title-text { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .entry-notes { font-size: 13px; color: var(--text2); line-height: 1.5; margin-bottom: 6px; }
+  .entry-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .entry-chip { font-size: 11px; padding: 2px 8px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 20px; color: var(--text2); }
+  .entry-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .empty { text-align: center; padding: 4rem 0; color: var(--text3); }
+  .checklist-section { margin-bottom: 1.5rem; }
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 8px; }
+  .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+  .check-item:last-child { border-bottom: none; }
+  .checkbox { width: 20px; height: 20px; border: 0.5px solid var(--border2); border-radius: 5px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; margin-top: 1px; }
+  .checkbox.done { background: var(--green-bg); border-color: var(--green-border); color: var(--green-text); }
+  .check-text { font-size: 14px; color: var(--text); line-height: 1.4; }
+  .check-text.done { text-decoration: line-through; color: var(--text3); }
+  .check-sub-text { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.5; }
+  .ref-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 8px; }
+  .ref-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .ref-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .ref-body strong { color: var(--text); font-weight: 600; }
+  .alert { border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; margin-bottom: 1rem; line-height: 1.5; }
+  .alert-warn { background: var(--amber-bg); color: var(--amber-text); border: 0.5px solid var(--amber-border); }
+  .alert-info { background: var(--blue-bg); color: var(--blue-text); border: 0.5px solid var(--blue-border); }
+  .alert-success { background: var(--green-bg); color: var(--green-text); border: 0.5px solid var(--green-border); }
+  .setup-step { display: flex; gap: 14px; padding: 1rem 0; border-bottom: 0.5px solid var(--border); }
+  .setup-step:last-child { border-bottom: none; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); border: 0.5px solid var(--border); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text2); }
+  .step-content { font-size: 13px; line-height: 1.7; color: var(--text2); flex: 1; }
+  .step-content strong { color: var(--text); }
+  .step-content code { font-family: monospace; font-size: 12px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--text); }
+  .sync-log { font-size: 12px; margin-top: 8px; min-height: 18px; color: var(--text3); }
+  .sync-log.ok { color: var(--green-text); }
+  .sync-log.err { color: var(--red-text); }
+  @media (max-width: 700px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 0.5px solid var(--border); padding: 0.5rem; display: flex; overflow-x: auto; }
+    .nav-item { border-left: none; border-bottom: 2px solid transparent; white-space: nowrap; padding: 8px 12px; }
+    .nav-item.active { border-left-color: transparent; border-bottom-color: var(--text); }
+    .stats-grid { grid-template-columns: repeat(2,1fr); }
+    .row2, .hat-row { grid-template-columns: 1fr; }
+    .main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚖️ Dual Role Logbook</h1>
+  <div class="topbar-right">
+    <div class="gdrive-status" id="gdrive-status"><span class="dot"></span><span id="gdrive-status-text">Drive not connected</span></div>
+    <button class="btn btn-sm btn-green" id="sync-btn" onclick="syncToDrive()" style="display:none">☁ Sync to Drive</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="nav-item active" onclick="showPage('log',this)"><span class="nav-icon">✏️</span> Log entry</div>
+    <div class="nav-item" onclick="showPage('entries',this)"><span class="nav-icon">📋</span> All entries</div>
+    <div class="nav-item" onclick="showPage('checklist',this)"><span class="nav-icon">✅</span> Checklist</div>
+    <div class="nav-item" onclick="showPage('reference',this)"><span class="nav-icon">📖</span> Reference</div>
+    <div class="nav-item" onclick="showPage('gdrive',this)"><span class="nav-icon">☁️</span> Google Drive</div>
+  </nav>
+
+  <main class="main">
+
+    <div id="page-log" class="page active">
+      <div class="page-title">New log entry</div>
+      <div class="card">
+        <div class="row2">
+          <div class="field"><label class="field-label">Date</label><input type="date" id="e-date"></div>
+          <div class="field"><label class="field-label">Location / facility</label><input type="text" id="e-location" placeholder="e.g. CSU Vet Med Lab B4"></div>
+        </div>
+        <div class="field">
+          <label class="field-label">Which hat are you wearing?</label>
+          <div class="hat-row">
+            <div class="hat-opt" id="hat-company" onclick="selectHat('company')"><div class="hat-icon">🏢</div>Company work</div>
+            <div class="hat-opt" id="hat-faculty" onclick="selectHat('faculty')"><div class="hat-icon">🎓</div>Faculty / institutional</div>
+            <div class="hat-opt" id="hat-both" onclick="selectHat('both')"><div class="hat-icon">⚠️</div>Both — document carefully</div>
+          </div>
+        </div>
+        <div class="field"><label class="field-label">Activity summary</label><input type="text" id="e-title" placeholder="e.g. Prototype testing — device v2.3 on cadaver specimen"></div>
+        <div class="field"><label class="field-label">Details</label><textarea id="e-notes" placeholder="What specifically did you do? What decisions were made? Any IP-relevant observations?"></textarea></div>
+        <div class="field"><label class="field-label">Institutional resources used</label><div class="resource-grid" id="res-grid"></div></div>
+        <div class="field"><label class="field-label">People present</label><input type="text" id="e-people" placeholder="e.g. Brian, Nick, lab tech"></div>
+        <div class="field"><label class="field-label">Follow-up needed?</label><input type="text" id="e-followup" placeholder="e.g. Request invoice from Brian for printer use"></div>
+        <div class="submit-row">
+          <button class="btn" onclick="clearForm()">Clear</button>
+          <button class="btn btn-primary" onclick="submitEntry()">Save entry</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-entries" class="page">
+      <div class="page-title">All entries</div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="filters">
+        <span style="font-size:12px;color:var(--text2)">Filter:</span>
+        <span class="filter-chip active" onclick="setFilter('all',this)">All</span>
+        <span class="filter-chip" onclick="setFilter('company',this)">Company</span>
+        <span class="filter-chip" onclick="setFilter('faculty',this)">Faculty</span>
+        <span class="filter-chip" onclick="setFilter('both',this)">Both</span>
+        <button class="btn btn-sm" style="margin-left:auto" onclick="exportCSV()">Export CSV</button>
+      </div>
+      <div id="entries-list"></div>
+    </div>
+
+    <div id="page-checklist" class="page">
+      <div class="page-title">Action checklist</div>
+      <div class="alert alert-warn">Complete these in order. Each one reduces IP and compliance exposure.</div>
+      <div class="card" id="checklist-body"></div>
+    </div>
+
+    <div id="page-reference" class="page">
+      <div class="page-title">Reference guide</div>
+      <div class="alert alert-info">Quick answers for decisions you need to make in the field.</div>
+      <div id="ref-body"></div>
+    </div>
+
+    <div id="page-gdrive" class="page">
+      <div class="page-title">Google Drive sync</div>
+      <div class="alert alert-success">100% free — uses Google Apps Script, which is built into every Google account. No billing, no API keys, no cloud setup fees.</div>
+      <div class="card">
+        <div class="card-title">One-time setup (~5 minutes)</div>
+        <div class="setup-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Open Google Apps Script</strong><br>
+            Go to <a href="https://script.google.com" target="_blank" style="color:var(--blue-text)">script.google.com</a> and click <strong>New project</strong>. Sign in with the Google account where you want your logbook saved.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Paste the backend script</strong><br>
+            Delete all the default code in the editor. Open <code>apps_script.gs</code> (the other file you downloaded), copy everything, paste it in. Press <strong>Ctrl+S</strong> to save and give the project a name like <em>Logbook Sync</em>.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Deploy as a web app</strong><br>
+            Click <strong>Deploy → New deployment</strong> (top right).<br>
+            Set type to <strong>Web app</strong>.<br>
+            Set "Execute as" to <strong>Me</strong>.<br>
+            Set "Who has access" to <strong>Only myself</strong>.<br>
+            Click <strong>Deploy</strong> → authorize when prompted → copy the <strong>Web app URL</strong>.
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <strong>Paste your Web app URL here</strong>
+            <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/..." style="margin-top:8px;font-family:monospace;font-size:12px;">
+            <button class="btn btn-sm" style="margin-top:8px" onclick="saveScriptUrl()">Save URL</button>
+            <div class="sync-log" id="url-log"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Sync your entries</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Pushes all entries to a Google Sheet called <strong>Dual Role Logbook</strong> in your Drive. Running it again updates everything — no duplicates created.</p>
+        <button class="btn btn-primary" onclick="syncToDrive()">☁ Sync all entries to Google Drive</button>
+        <div class="sync-log" id="sync-log"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const RESOURCES = ['3D printer','Lab equipment','Cadaver / tissue','Imaging data','CSU computing','Lab space','Consumables / materials','Staff time'];
+const CHECKLIST_DEFAULT = [
+  {id:'c1',week:'This week',text:'Get your appointment paperwork',sub:'Go to CSU HR in person. Ask for your complete onboarding file — everything you signed or acknowledged electronically.',done:false},
+  {id:'c2',week:'This week',text:"Verify your collaborator's COI disclosure",sub:"Ask for a copy of the current COI form on file. Confirm it names your company, the equity %, the board seat, and the specific project.",done:false},
+  {id:'c3',week:'This week',text:'Start keeping this logbook consistently',sub:'Record every visit from today forward. Date, location, hat worn, resources used.',done:false},
+  {id:'c4',week:'Within two weeks',text:'Draft IP clarification letter with tech transfer',sub:'Engage the tech transfer office (not your collaborator directly) to get written acknowledgment that device IP belongs to your company.',done:false},
+  {id:'c5',week:'Within two weeks',text:'Get a cadaver / tissue use agreement in place',sub:"Cover both historical and future wet lab testing. Key terms: institution's role is tissue-as-service only; your company retains all device IP.",done:false},
+  {id:'c6',week:'Within two weeks',text:'Invoice and pay for all institutional resource use',sub:'Any equipment, space, or materials used for company work should be documented and invoiced. Undocumented use accumulates into a liability.',done:false},
+  {id:'c7',week:'Ongoing',text:'Never use institutional email for company strategy',sub:'Institutional email is institutional property and may be subject to public records requests. Use personal or company email.',done:false},
+  {id:'c8',week:'Ongoing',text:'Keep this logbook current after every visit',sub:'Aim to log within 24 hours of each visit. A consistent contemporaneous record is far more credible than reconstructed notes.',done:false},
+];
+const REFERENCE = [
+  {title:'The question to ask before every activity',body:"<strong>Which hat am I wearing right now?</strong> If the activity advances your company's device or IP, it is company work. If it serves the institution's research or teaching mission, it is faculty work. If genuinely both, document the split explicitly."},
+  {title:"What binds you to the institution's IP policy",body:"Universities assert IP claims through three mechanisms: (1) a signed appointment agreement incorporating the IP policy, (2) acceptance of institutional compensation, or (3) explicit written acceptance of the policy. If you signed nothing and received no compensation, their claim is weaker — but verify what you actually signed."},
+  {title:'Use of institutional resources',body:"Equipment purchased with money that flowed through the institution is almost certainly institutional property. Using it for company work gives the institution a hook for IP claims. The fix is a written use agreement and payment — it must exist and be documented."},
+  {title:'Cadaver and tissue testing',body:"The institution owns the cadavers. Testing prototypes on institutional tissue creates a plausible argument that reduction-to-practice occurred using institutional materials. Any cadaver testing must be covered by a written agreement: (a) institution's role is tissue-as-service only, (b) your company retains all device IP, (c) performance findings belong to your company."},
+  {title:'Who to contact for IP questions',body:"Go to the tech transfer office or research foundation — not your faculty collaborator. The tech transfer office is the IP authority. Any IP clarification needs to be signed by someone with authority to bind the institution."},
+  {title:'What to do if tech transfer contacts you',body:"Stay calm. Do not improvise. Your logbook, signed agreements, and IP clarification letter are your story. Refer substantive questions to your company's legal counsel. Ask for everything in writing."},
+  {title:'The email rule',body:"<strong>Never use institutional email for company strategy or IP-sensitive communications.</strong> At public universities and hospitals it may be subject to public records requests. Use personal or company email. If the institution will only correspond via institutional email, handle it by phone."},
+  {title:'Foreground IP in sponsored research agreements',body:"The institution's default is that inventions made during sponsored research belong to the institution. Push for: inventions relating to your device or made by your personnel belong to your company; inventions made solely by institutional personnel on unrelated topics can be theirs, subject to a royalty-free license to you."},
+  {title:'The goodwill balance',body:"The collaborative relationship has real value. The goal is not to eliminate helpfulness but to ensure that when ownership questions arise, the story you tell is clean, documented, and consistent. You are organizing the record before someone else starts interpreting it."},
+];
+
+let entries = JSON.parse(localStorage.getItem('logbook_v2_entries') || '[]');
+let checklist = JSON.parse(localStorage.getItem('logbook_v2_checklist') || JSON.stringify(CHECKLIST_DEFAULT));
+let selectedHat = null;
+let activeFilter = 'all';
+let scriptUrl = localStorage.getItem('logbook_script_url') || '';
+
+function init() {
+  document.getElementById('e-date').value = new Date().toISOString().split('T')[0];
+  const rg = document.getElementById('res-grid');
+  RESOURCES.forEach(r => {
+    const c = document.createElement('span');
+    c.className = 'res-chip'; c.textContent = r; c.dataset.res = r;
+    c.onclick = () => c.classList.toggle('selected');
+    rg.appendChild(c);
+  });
+  if(scriptUrl) { document.getElementById('script-url-input').value = scriptUrl; setConnected(); }
+  renderChecklist(); renderReference(); renderEntries(); renderStats();
+}
+
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  if(name==='entries'){renderEntries();renderStats();}
+}
+
+function selectHat(h) {
+  selectedHat = h;
+  ['company','faculty','both'].forEach(x => {
+    document.getElementById('hat-'+x).className = 'hat-opt'+(x===h?' sel-'+x:'');
+  });
+}
+
+function clearForm() {
+  ['e-title','e-notes','e-people','e-location','e-followup'].forEach(id => document.getElementById(id).value='');
+  document.querySelectorAll('.res-chip').forEach(c => c.classList.remove('selected'));
+  selectedHat = null;
+  ['company','faculty','both'].forEach(x => document.getElementById('hat-'+x).className='hat-opt');
+  document.getElementById('e-date').value = new Date().toISOString().split('T')[0];
+}
+
+function submitEntry() {
+  const date = document.getElementById('e-date').value;
+  const title = document.getElementById('e-title').value.trim();
+  if(!date||!title||!selectedHat){alert('Please fill in the date, activity summary, and select which hat you were wearing.');return;}
+  const entry = {
+    id:Date.now(), date,
+    location: document.getElementById('e-location').value.trim(),
+    hat: selectedHat, title,
+    notes: document.getElementById('e-notes').value.trim(),
+    resources: [...document.querySelectorAll('.res-chip.selected')].map(c=>c.dataset.res),
+    people: document.getElementById('e-people').value.trim(),
+    followup: document.getElementById('e-followup').value.trim(),
+    synced: false,
+  };
+  entries.unshift(entry); save(); clearForm();
+  showPage('entries', document.querySelectorAll('.nav-item')[1]);
+}
+
+function hatBadge(h) {
+  return `<span class="badge badge-${h}">${{company:'Company work',faculty:'Faculty / institutional',both:'Both'}[h]}</span>`;
+}
+
+function setFilter(f,el) {
+  activeFilter=f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); renderEntries();
+}
+
+function renderEntries() {
+  const list = document.getElementById('entries-list');
+  const filtered = activeFilter==='all' ? entries : entries.filter(e=>e.hat===activeFilter);
+  if(!filtered.length){list.innerHTML='<div class="empty">No entries yet.</div>';return;}
+  list.innerHTML = filtered.map(e=>`
+    <div class="entry-card">
+      <div class="entry-top">
+        <div class="entry-meta">${e.date}${e.location?' · '+e.location:''}${e.people?' · '+e.people:''}</div>
+        <div style="display:flex;gap:6px;align-items:center">${hatBadge(e.hat)}${e.synced?'<span style="font-size:10px;color:#1D9E75">☁ synced</span>':''}</div>
+      </div>
+      <div class="entry-title-text">${e.title}</div>
+      ${e.notes?`<div class="entry-notes">${e.notes}</div>`:''}
+      ${e.resources.length?`<div class="entry-chips">${e.resources.map(r=>`<span class="entry-chip">${r}</span>`).join('')}</div>`:''}
+      ${e.followup?`<div style="margin-top:6px;font-size:12px;color:var(--amber-text);background:var(--amber-bg);border-radius:4px;padding:3px 8px;display:inline-block">Follow-up: ${e.followup}</div>`:''}
+      <div class="entry-actions"><button class="btn btn-sm" onclick="deleteEntry(${e.id})">Delete</button></div>
+    </div>`).join('');
+}
+
+function renderStats() {
+  const t=entries.length, co=entries.filter(e=>e.hat==='company').length;
+  const fa=entries.filter(e=>e.hat==='faculty').length, bo=entries.filter(e=>e.hat==='both').length;
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat"><div class="stat-num">${t}</div><div class="stat-label">Total entries</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--blue-text)">${co}</div><div class="stat-label">Company work</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--green-text)">${fa}</div><div class="stat-label">Faculty / institutional</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--amber-text)">${bo}</div><div class="stat-label">Both (review)</div></div>`;
+}
+
+function deleteEntry(id) {
+  if(!confirm('Delete this entry?'))return;
+  entries=entries.filter(e=>e.id!==id); save(); renderEntries(); renderStats();
+}
+
+function renderChecklist() {
+  const weeks=[...new Set(checklist.map(c=>c.week))];
+  document.getElementById('checklist-body').innerHTML=weeks.map(w=>`
+    <div class="checklist-section">
+      <div class="section-label">${w}</div>
+      ${checklist.filter(c=>c.week===w).map(c=>`
+        <div class="check-item">
+          <div class="checkbox ${c.done?'done':''}" onclick="toggleCheck('${c.id}')">${c.done?'✓':''}</div>
+          <div>
+            <div class="check-text ${c.done?'done':''}">${c.text}</div>
+            <div class="check-sub-text">${c.sub}</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function toggleCheck(id) {
+  const item=checklist.find(c=>c.id===id);
+  if(item){item.done=!item.done;save();renderChecklist();}
+}
+
+function renderReference() {
+  document.getElementById('ref-body').innerHTML=REFERENCE.map(r=>`
+    <div class="ref-card"><div class="ref-title">${r.title}</div><div class="ref-body">${r.body}</div></div>`).join('');
+}
+
+function exportCSV() {
+  if(!entries.length){alert('No entries to export.');return;}
+  const h=['Date','Location','Hat','Activity','Notes','Resources','People','Follow-up'];
+  const rows=entries.map(e=>[e.date,e.location,e.hat,e.title,e.notes,e.resources.join('; '),e.people,e.followup]
+    .map(v=>'"'+(v||'').replace(/"/g,'""')+'"').join(','));
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([h.join(','),...rows].join('\n'));
+  a.download='logbook_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+}
+
+function save() {
+  localStorage.setItem('logbook_v2_entries',JSON.stringify(entries));
+  localStorage.setItem('logbook_v2_checklist',JSON.stringify(checklist));
+}
+
+function saveScriptUrl() {
+  scriptUrl=document.getElementById('script-url-input').value.trim();
+  if(!scriptUrl){alert('Please paste your Web app URL first.');return;}
+  localStorage.setItem('logbook_script_url',scriptUrl);
+  setConnected();
+  const el=document.getElementById('url-log');
+  el.textContent='URL saved. You can now sync your entries.';
+  el.className='sync-log ok';
+}
+
+function setConnected() {
+  document.getElementById('gdrive-status').className='gdrive-status connected';
+  document.getElementById('gdrive-status-text').textContent='Drive connected';
+  document.getElementById('sync-btn').style.display='block';
+}
+
+function setLog(msg,ok) {
+  const el=document.getElementById('sync-log');
+  el.textContent=msg; el.className='sync-log '+(ok?'ok':'err');
+}
+
+async function syncToDrive() {
+  if(!scriptUrl){
+    alert('Please set up Google Drive first — click the Google Drive tab in the sidebar.');
+    return;
+  }
+  setLog('Syncing…',true);
+  document.getElementById('sync-btn').textContent='⏳ Syncing…';
+  try {
+    const res=await fetch(scriptUrl,{method:'POST',body:JSON.stringify({action:'sync',entries})});
+    const data=await res.json();
+    if(data.status==='ok'){
+      entries.forEach(e=>e.synced=true); save(); renderEntries();
+      setLog('✓ Synced '+data.count+' entries to Google Sheets · '+new Date().toLocaleTimeString(),true);
+      document.getElementById('sync-btn').textContent='✓ Synced';
+      setTimeout(()=>document.getElementById('sync-btn').textContent='☁ Sync to Drive',3000);
+    } else {
+      setLog('Script error: '+data.message,false);
+      document.getElementById('sync-btn').textContent='☁ Sync to Drive';
+    }
+  } catch(err) {
+    setLog('Sync failed: '+err.message+' — double-check your Web app URL.',false);
+    document.getElementById('sync-btn').textContent='☁ Sync to Drive';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
